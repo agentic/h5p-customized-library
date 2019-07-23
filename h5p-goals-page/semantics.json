@@ -54,6 +54,20 @@
     "description": "This text will follow after the amount of goals that is currently created, example: 'Goals added: 5' where 'Goals added:' is this text."
   },
   {
+    "name": "finishGoalText",
+    "label": "Text for \"Finish goal\"-button",
+    "importance": "low",
+    "type": "text",
+    "default": "Finish"
+  },
+  {
+    "name": "editGoalText",
+    "label": "Text for \"Edit goal\"-button",
+    "importance": "low",
+    "type": "text",
+    "default": "Edit"
+  },
+  {
     "name": "specifyGoalText",
     "label": "Text for \"Specify goal\"-button",
     "importance": "low",
@@ -95,6 +109,13 @@
       "h3",
       "hr"
     ]
+  },
+  {
+    "name": "goalListId",
+    "label": "Goal list ID",
+    "importance": "medium",
+    "type": "text",
+    "optional": true
   },
   {
     "name": "goalDeletionConfirmation",

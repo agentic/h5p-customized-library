@@ -1,3 +1,4 @@
+/*global Mustache */
 var H5P = H5P || {};
 H5P.DocumentExportPage = H5P.DocumentExportPage || {};
 
@@ -21,6 +22,8 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
     this.params = params;
     this.title = title;
     this.submitEnabled = submitEnabled;
+    this.customElements = {};
+    this.customGoals = [];
   }
 
   // Setting up inheritance
@@ -36,9 +39,9 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
     var self = this;
 
     var exportString = this.getExportString();
-    exportString += this.createGoalsOutput() || '';
+    exportString = this.createGoalsOutput(exportString);
     var exportObject = this.getExportObject();
-    var exportPage = new ExportPage(this.title,
+    var exportPage = new ExportPage(self.title,
       exportString,
       this.submitEnabled,
       this.params.submitTextLabel,
@@ -65,9 +68,10 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
    * @returns {Object} exportObject Exportable content for filling template
    */
   CreateDocument.prototype.getExportObject = function () {
+    var self = this;
     var sortedGoalsList = [];
 
-    this.inputGoals.inputArray.forEach(function (inputGoalPage) {
+    self.inputGoals.inputArray.forEach(function (inputGoalPage) {
       inputGoalPage.forEach(function (inputGoal) {
         // Do not include unassessed goals
         if (inputGoal.goalAnswer() === -1) {
@@ -90,13 +94,20 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
         }
 
         if (inputGoal.goalText().length && inputGoal.getTextualAnswer().length) {
-          sortedGoalsList[listIndex].goalArray.push({text: inputGoal.goalText()});
+          // deprecated by denis - 2019-07-18
+          // sortedGoalsList[listIndex].goalArray.push({text: inputGoal.goalText()});
+          var goalText = '';
+          if (inputGoal.getParent() !== undefined) {
+            goalText += inputGoal.getParent().goalText() + ' - ';
+          }
+          goalText += inputGoal.goalText();
+          sortedGoalsList[listIndex].goalArray.push({text: goalText});
         }
       });
     });
 
     var flatInputsList = [];
-    this.inputFields.forEach(function (inputFieldPage) {
+    self.inputFields.forEach(function (inputFieldPage) {
       if (inputFieldPage.inputArray && inputFieldPage.inputArray.length) {
         var standardPage = {title: '', inputArray: []};
         if (inputFieldPage.title) {
@@ -110,11 +121,14 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
     });
 
     var exportObject = {
-      title: this.title,
-      goalsTitle: this.inputGoals.title,
+      title: self.title,
+      goalsTitle: self.inputGoals.title,
       flatInputList: flatInputsList,
-      sortedGoalsList: sortedGoalsList
+      sortedGoalsList: sortedGoalsList,
+      customGoalsList: self.customGoals//added by denis
     };
+
+    Object.assign(exportObject, self.customElements);//added by denis
 
     return exportObject;
   };
@@ -135,29 +149,71 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
    * @returns {string} inputBlocksString Html string from input fields
    */
   CreateDocument.prototype.getInputBlocksString = function () {
+    var self = this;
     var inputBlocksString = '<div class="textfields-output">';
+    var applyCustomTemplate = function(template, inputFields) {
+      var templateContent = template;
+      inputFields.forEach(function (inputPage) {
+        if (inputPage.inputArray && inputPage.inputArray.length) {
+          inputPage.inputArray.forEach(function (inputInstance) {
+            if (inputInstance && inputInstance.elementId !== '') {
+              elementId = inputInstance.elementId;  
+              var re = new RegExp("{" + elementId  + "}", 'g');
+              templateContent = 
+                templateContent.replace(re, inputInstance.value);
+              self.customElements[elementId] =  inputInstance.value;
+            }
+          });
+        }
+      });
+      return templateContent;
+    };
 
-    this.inputFields.forEach(function (inputPage) {
-      if (inputPage.inputArray && inputPage.inputArray.length && inputPage.title.length) {
-        inputBlocksString +=
-          '<h2>' + inputPage.title + '</h2>';
-      }
-      if (inputPage.inputArray && inputPage.inputArray.length) {
-        inputPage.inputArray.forEach(function (inputInstance) {
-          if (inputInstance) {
-            // remove paragraph tags
-            inputBlocksString +=
+    if (self.params.customHtmlTemplate && self.params.customHtmlTemplate !=='') {
+      inputBlocksString += applyCustomTemplate(self.params.customHtmlTemplate, self.inputFields);
+    } else {
+      self.inputFields.forEach(function (inputPage) {
+        if (inputPage.inputArray && inputPage.inputArray.length && inputPage.title.length) {
+          inputBlocksString +=
+            '<h2>' + inputPage.title + '</h2>';
+        }
+        if (inputPage.inputArray && inputPage.inputArray.length) {
+          inputPage.inputArray.forEach(function (inputInstance) {
+            if (inputInstance) {
+              // remove paragraph tags
+              inputBlocksString +=
               '<p>' +
                 (inputInstance.description ? '<strong>' + inputInstance.description + '</strong>\n' : '') +
                 inputInstance.value +
               '</p>';
-          }
-        });
-      }
-    });
+            }
+          });
+        }
+      });
+    }
+    
+    
+
+    // this.inputFields.forEach(function (inputPage) {
+    //   if (inputPage.inputArray && inputPage.inputArray.length && inputPage.title.length) {
+    //     inputBlocksString +=
+    //       '<h2>' + inputPage.title + '</h2>';
+    //   }
+    //   if (inputPage.inputArray && inputPage.inputArray.length) {
+    //     inputPage.inputArray.forEach(function (inputInstance) {
+    //       if (inputInstance) {
+    //         // remove paragraph tags
+    //         inputBlocksString +=
+    //           '<p>' +
+    //             (inputInstance.description ? '<strong>' + inputInstance.description + '</strong>\n' : '') +
+    //             inputInstance.value +
+    //           '</p>';
+    //       }
+    //     });
+    //   }
+    // }); //deprecated by denis
 
     inputBlocksString += '</div>';
-
     return inputBlocksString;
   };
 
@@ -165,20 +221,55 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
    * Generates html string for all goals
    * @returns {string} goalsOutputString Html string from all goals
    */
-  CreateDocument.prototype.createGoalsOutput = function () {
-
-    var goalsOutputString = '<div class="goals-output">';
-
-    if (this.inputGoals === undefined || !this.inputGoals.inputArray || this.inputGoals.inputArray.length === 0) {
+  CreateDocument.prototype.createGoalsOutput = function (exportString) {
+    var self = this;
+    if (self.inputGoals === undefined) {
       return;
     }
 
-    if (this.inputGoals.title.length) {
-      goalsOutputString +=
-        '<h2>' + this.inputGoals.title + '</h2>';
+    if (self.params.customHtmlTemplate && self.params.customHtmlTemplate !=='' &&
+      self.inputGoals.inputArray) {
+
+      self.customGoals = {};
+
+      var goalLists = self.inputGoals.inputArray;
+      var goalListItems;
+      var goalListId;
+      var goalListHtml;
+      
+      for(var listIndex=0; listIndex < goalLists.length; listIndex++) {
+        goalListItems = goalLists[listIndex];
+        
+        if (goalListItems.length) {
+          goalListId = goalListItems[0].goalListId;
+          self.customGoals[goalListId] = [];
+          goalListHtml = '<ul>';   // for preview template
+          
+          for(var itemIndex=0; itemIndex < goalListItems.length; itemIndex++) {
+            goalInstance = goalListItems[itemIndex];
+            self.customGoals[goalListId].push({ value: goalInstance.text });
+            goalListHtml += '<li>' +  goalInstance.text + '</li>';
+          }
+
+          goalListHtml += '</ul>'
+          exportString = exportString.replace('{' + goalListId + '}', goalListHtml);
+        }
+      }
+    
+      return exportString;
     }
 
-    this.inputGoals.inputArray.forEach(function (inputGoalPage) {
+    var goalsOutputString = '<div class="goals-output">';
+    if (self.inputGoals.inputArray && self.inputGoals.inputArray.length && self.inputGoals.title.length) {
+      goalsOutputString +=
+        '<h2>' + self.inputGoals.title + '</h2>';
+    }
+
+    if (!self.inputGoals.inputArray) {
+      return;
+    }
+
+    self.inputGoals.inputArray.forEach(function (inputGoalPage) {
       var goalOutputArray = [];
 
       inputGoalPage.forEach(function (inputGoalInstance) {
@@ -190,7 +281,15 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
             var answerStringTitle = '<p class="category"><strong>' + inputGoalInstance.getTextualAnswer() + ':</strong></p><ul>';
             goalOutputArray[inputGoalInstance.goalAnswer()].push(answerStringTitle);
           }
-          htmlString += '<li>' + inputGoalInstance.text + '</li>';
+          // added by denis - start          // added by denis - start
+          if (inputGoalInstance.getParent() !== undefined) {
+            var parentGoal = inputGoalInstance.getParent().goalText();
+            htmlString += '<li>' + parentGoal + ' - ' + inputGoalInstance.text + '</li>';
+          } else {
+            htmlString += '<li>' + inputGoalInstance.text + '</li>';
+          }
+          //-end denis
+          //htmlString += '<li>' + inputGoalInstance.text + '</li>';
           goalOutputArray[inputGoalInstance.goalAnswer()].push(htmlString);
         }
       });
@@ -207,7 +306,7 @@ H5P.DocumentExportPage.CreateDocument = (function ($, ExportPage, EventDispatche
 
     goalsOutputString += '</div>';
 
-    return goalsOutputString;
+    return exportString + goalsOutputString;
   };
 
   return CreateDocument;

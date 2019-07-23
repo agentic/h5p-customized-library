@@ -29,15 +29,6 @@
     "optional": true
   },
   {
-    "name": "maximumLength",
-    "label": "Maximum text length",
-    "type": "number",
-    "description": "Maximum number of characters for the text.",
-    "importance": "low",
-    "optional": true,
-    "min": "0"
-  },
-  {
     "name": "inputFieldSize",
     "label": "Input field size",
     "type": "select",
@@ -69,12 +60,11 @@
     "description": "Check to make this field required, the user must answer all required fields to be able to export a document."
   },
   {
-    "name": "remainingChars",
+    "name": "elementId",
+    "label": "Element ID",
     "type": "text",
-    "label": "Remaining characters",
+    "description": "Unique element ID that can be used to retrieve its value.",
     "importance": "low",
-    "common": true,
-    "default": "Remaining characters: @chars",
-    "description": "Message for remaining characters. You can use @chars which will be replaced by the corresponding number."
+    "optional": true
   }
 ]

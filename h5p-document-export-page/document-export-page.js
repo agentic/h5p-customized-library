@@ -25,7 +25,8 @@ H5P.DocumentExportPage = (function ($, EventDispatcher) {
 
     // Set default behavior.
     this.params = $.extend({
-      title: this.getTitle(),
+      // title: this.getTitle(),
+      title: 'Document export',
       description: '',
       createDocumentLabel: 'Proceed',
       submitTextLabel: 'Submit',
@@ -34,7 +35,8 @@ H5P.DocumentExportPage = (function ($, EventDispatcher) {
       exportTextLabel: 'Export',
       requiresInputErrorMessage: 'The following pages contain required input fields that need to be filled: @pages',
       helpTextLabel: 'Read more',
-      helpText: 'Help text'
+      helpText: 'Help text',
+      customHtmlTemplate: ''
     }, params);
   }
 
@@ -87,7 +89,11 @@ H5P.DocumentExportPage = (function ($, EventDispatcher) {
     H5P.DocumentationTool.handleButtonClick(self.$exportDocumentButton, function () {
       // Check if all required input fields are filled
       if (self.isRequiredInputsFilled()) {
-        var exportDocument = new H5P.DocumentExportPage.CreateDocument(self.params, self.exportTitle, self.submitEnabled, self.inputArray, self.inputGoals, self.getLibraryFilePath('exportTemplate.docx'));
+        var docxTemplate = self.getLibraryFilePath('exportTemplate.docx');
+        if (self.params.customDocxTemplate) {
+          docxTemplate = H5P.getPath(self.params.customDocxTemplate.path, self.id);
+        }
+        var exportDocument = new H5P.DocumentExportPage.CreateDocument(self.params, self.exportTitle, self.submitEnabled, self.inputArray, self.inputGoals, docxTemplate);
         exportDocument.attach(self.$wrapper.parent().parent());
         exportDocument.on('export-page-closed', function () {
           self.trigger('export-page-closed');

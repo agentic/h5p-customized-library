@@ -110,13 +110,16 @@ H5P.MultiChoice = function (options, contentId, contentData) {
       singlePoint: true,
       randomAnswers: false,
       showSolutionsRequiresInput: true,
+      disableImageZooming: false,
       autoCheck: false,
       passPercentage: 100,
       showScorePoints: true
     }
   };
   var template = new EJS({text: texttemplate});
-  var params = $.extend(true, defaults, options);
+  var params = $.extend(true, {}, defaults, options);
+  this.params = params;
+
   // Keep track of number of correct choices
   var numCorrect = 0;
 
@@ -199,23 +202,22 @@ H5P.MultiChoice = function (options, contentId, contentData) {
    * Register the different parts of the task with the H5P.Question structure.
    */
   self.registerDomElements = function () {
-    var media = params.media.type;
-    if (media && media.library) {
-      var type = media.library.split(' ')[0];
+    if (params.media && params.media.library) {
+      var type = params.media.library.split(' ')[0];
       if (type === 'H5P.Image') {
-        if (media.params.file) {
+        if (params.media.params.file) {
           // Register task image
-          self.setImage(media.params.file.path, {
-            disableImageZooming: params.media.disableImageZooming || false,
-            alt: media.params.alt,
-            title: media.params.title
+          self.setImage(params.media.params.file.path, {
+            disableImageZooming: params.behaviour.disableImageZooming,
+            alt: params.media.params.alt,
+            title: params.media.params.title
           });
         }
       }
       else if (type === 'H5P.Video') {
-        if (media.params.sources) {
+        if (params.media.params.sources) {
           // Register task video
-          self.setVideo(media);
+          self.setVideo(params.media);
         }
       }
     }
@@ -323,7 +325,6 @@ H5P.MultiChoice = function (options, contentId, contentData) {
       if ($ans.attr('aria-disabled') === 'true') {
         return;
       }
-      self.answered = true;
       var num = parseInt($ans.data('id'));
       if (params.behaviour.singleAnswer) {
         // Store answer
@@ -384,6 +385,7 @@ H5P.MultiChoice = function (options, contentId, contentData) {
     };
 
     $answers.click(function () {
+      self.answered = true;
       toggleCheck($(this));
     }).keydown(function (e) {
       if (e.keyCode === 32) { // Space bar
@@ -579,13 +581,13 @@ H5P.MultiChoice = function (options, contentId, contentData) {
     // Remove all tip dialogs
     removeFeedbackDialog();
 
+    self.hideButton('check-answer');
     if (params.behaviour.enableSolutionsButton) {
       self.showButton('show-solution');
     }
     if (params.behaviour.enableRetry) {
       self.showButton('try-again');
     }
-    self.hideButton('check-answer');
 
     self.showCheckSolution();
     disableInput();
@@ -594,6 +596,7 @@ H5P.MultiChoice = function (options, contentId, contentData) {
     addQuestionToXAPI(xAPIEvent);
     addResponseToXAPI(xAPIEvent);
     self.trigger(xAPIEvent);
+    self.trigger('resize');
   };
 
   /**
@@ -793,20 +796,21 @@ H5P.MultiChoice = function (options, contentId, contentData) {
     // Determine feedback
     var max = self.getMaxScore();
 
-    // Disable task if maxscore is achieved
-    var fullScore = (score === max);
-
-    if (fullScore) {
-      self.hideButton('check-answer');
-      self.hideButton('try-again');
-      self.hideButton('show-solution');
-    }
-
     // Show feedback
     if (!skipFeedback) {
       this.setFeedback(getFeedbackText(score, max), score, max, params.UI.scoreBarLabel);
     }
 
+    // Disable task if maxscore is achieved
+    var fullScore = (score === max);
+    if (fullScore) {
+      self.hideButton('check-answer');
+      self.hideButton('try-again');
+      self.hideButton('show-solution');
+      self.trigger('resize');
+    }
+
+    
     self.trigger('resize');
   };
 
@@ -1100,3 +1104,16 @@ H5P.MultiChoice = function (options, contentId, contentData) {
 
 H5P.MultiChoice.prototype = Object.create(H5P.Question.prototype);
 H5P.MultiChoice.prototype.constructor = H5P.MultiChoice;
+
+H5P.MultiChoice.prototype.getAnswers = function() {
+  var answers = [];
+  for (var i=0; i < this.params.userAnswers.length; i++) {
+    answers.push(this.params.answers[ this.params.userAnswers[i] ]);
+  }
+
+  return {
+    elementId: this.params.elementId,
+    answers: answers
+  }
+};
+

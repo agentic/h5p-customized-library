@@ -30,7 +30,8 @@ H5P.TextInputField = (function ($) {
       taskDescription: 'Input field',
       placeholderText: '',
       inputFieldSize: '1',
-      requiredField: false
+      requiredField: false,
+      elementId: ''
     }, params);
 
     // Sanitize the task description as it comes in HTML
@@ -128,7 +129,8 @@ H5P.TextInputField = (function ($) {
 
     return {
       description: descriptionElement.innerHTML,
-      value: this.$inputField.val()
+      value: this.$inputField.val(),
+                elementId: this.params.elementId
     };
   };
 
